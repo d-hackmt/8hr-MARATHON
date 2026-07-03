@@ -62,6 +62,15 @@ lesson introduces new configuration.
 
 ---
 
+## 🧪 Evals
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `JUDGE_GROQ` | Separate Groq key used exclusively by the RAGAS eval pipeline as the judge LLM. Keeping it separate ensures eval runs cannot exhaust the production key. | `gsk_...` |
+
+---
+
 ## 🔒 Security Best Practices
 1.  **Never** commit your `.env` file to Git — it is in `.gitignore`.
 2.  Use `.env.example` as the template when onboarding new developers.
+3.  Keep `JUDGE_GROQ` on a separate key so eval workloads cannot rate-limit the live app.

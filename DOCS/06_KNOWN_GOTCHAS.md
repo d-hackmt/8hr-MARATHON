@@ -147,3 +147,16 @@ served from cache — LangChain's `ChatOpenAI` wrapper doesn't expose that
 header, so `responder.py` uses the native Portkey client instead. Both
 routes share the same `GATEWAY_CONFIG` (fallback + cache + retry), so
 routing behavior is identical either way.
+
+---
+
+## 9. Golden Dataset Sample Paths Are Case-Sensitive
+
+**The Issue:**
+`evals/data_parser.py` builds its sample corpus by reading from
+`DATA/true_data/` and `DATA/noisy_data/` directly (not through
+`app/ingestion/processor.py`). On Windows, filesystem lookups are
+case-insensitive, so a directory reference typo (`data/` vs `DATA/`) fails
+silently — until the same code runs on a case-sensitive filesystem (Mac,
+Linux, most CI runners), where it raises `FileNotFoundError`. Keep casing
+exact when referencing `DATA/` anywhere in this repo.
