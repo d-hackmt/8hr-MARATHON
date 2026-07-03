@@ -2,7 +2,7 @@
 
 This diagram grows one subgraph at a time as each lesson is introduced.
 
-## Stage 4 — Guardrails
+## Stage 5 — LLM Gateway
 
 ```mermaid
 graph TB
@@ -20,31 +20,38 @@ graph TB
 
     subgraph AGENT ["3. Agent Engine — LangGraph"]
         direction LR
-        PL["🗺️ Planner Node\nIntent Classification (direct Groq)"]
+        PL["🗺️ Planner Node\nIntent Classification"]
         RT["🔍 Retriever Node\nVector Search"]
-        RS["💬 Responder Node\nAnswer Generation (direct Groq)"]
+        RS["💬 Responder Node\nAnswer Generation"]
         MEM[("💾 MemorySaver\nConversation History")]
     end
 
-    subgraph KNOWLEDGE ["4. Knowledge"]
+    subgraph KNOWLEDGE ["4. Knowledge & LLMs"]
         direction LR
         QD[("🗄️ Qdrant Cloud\nVector DB")]
         FR["⚡ FlashRank\nLocal Reranker"]
+        PK["🔀 Portkey Gateway\nRouting + Fallback + Cache"]
+        G1["🦙 Groq Primary\nLlama 3.3 · 70B"]
+        G2["🦙 Groq Fallback\nLlama 3.1 · 8B"]
     end
 
     CHAT -->|query| API
     API --> GR
     GR -->|"❌ blocked"| CHAT
     GR -->|"✅ pass"| PL
-    PL -->|technical| RT
-    PL -->|conversational| RS
+    PL -->|"technical"| RT
+    PL -->|"conversational"| RS
     RT --> QD
     QD --> FR
     FR --> RS
-    RS --> API
-    API --> CHAT
+    RS --> PK
+    PL --> PK
+    PK --> G1
+    PK -.->|"fallback"| G2
     RS -.-> MEM
     MEM -.-> PL
+    RS --> API
+    API --> CHAT
 
     classDef ui        fill:#2563EB,stroke:#1E40AF,color:#fff
     classDef safety    fill:#DC2626,stroke:#991B1B,color:#fff
@@ -55,15 +62,13 @@ graph TB
     class CHAT ui
     class API,GR safety
     class PL,RT,RS agent
-    class QD,FR knowledge
+    class QD,FR,PK,G1,G2 knowledge
     class MEM memory
 ```
 
-The Guardrails gate sits in `main.py`, not inside the LangGraph — it's a
-pre-graph HTTP-layer check on the raw user message, called once before
-`rag_agent.invoke(...)`. It is input-only: the final LLM answer is never
-re-checked.
+This is the full agent-side architecture. `app/guardrails/rails.py`'s
+classifier LLM is intentionally left off this Portkey path — it's the one
+LLM call in the project that never moves onto the gateway.
 
-The next stage (`stage-5-llm-gateway`) adds an LLM Gateway subgraph that
-the Planner and Responder route through — but not the guardrails
-classifier, which intentionally stays on a direct Groq call.
+The final stage (`stage-6-evals`) adds a RAGAS Evaluation Suite subgraph
+that queries this whole system from the outside to measure it.

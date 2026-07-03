@@ -12,7 +12,16 @@ lesson introduces new configuration.
 
 | Variable | Description | Example |
 | :--- | :--- | :--- |
-| `GROQ_API_KEY` | Groq API key — called directly by the Planner and Responder nodes (no gateway yet) | `gsk_...` |
+| `GROQ_API_KEY` | Primary Groq key — still called directly by the guardrails classifier | `gsk_...` |
+| `GROQ_FALLBACK_API_KEY` | Second Groq key used by Portkey as the fallback target; can be the same as primary | `gsk_...` |
+
+---
+
+## 🔀 LLM Gateway
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `PORTKEY_API_KEY` | API key for Portkey — enables routing, fallback, caching, and observability for the Planner/Responder nodes | `pk-...` |
 
 ---
 

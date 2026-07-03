@@ -10,43 +10,40 @@ branch is a small, runnable step on top of the previous one.
 | 1 | `stage-1-ingestion` | Parse local documents, chunk them, embed them, and index them into a vector database |
 | 2 | `stage-2-basic-rag` | A minimal FastAPI + LangGraph RAG agent — no reranking, no memory yet |
 | 3 | `stage-3-rerank-memory` | Add a local semantic reranker and multi-turn conversation memory |
-| **4** | **`stage-4-guardrails`** ← you are here | Add an input safety gate that blocks off-topic and jailbreak attempts |
-| 5 | `stage-5-llm-gateway` | Route all LLM calls through an LLM gateway with automatic fallback and caching |
+| 4 | `stage-4-guardrails` | Add an input safety gate that blocks off-topic and jailbreak attempts |
+| **5** | **`stage-5-llm-gateway`** ← you are here | Route all LLM calls through an LLM gateway with automatic fallback and caching |
 | 6 | `stage-6-evals` | Add a RAGAS-based evaluation suite to measure the whole system |
 
 ---
 
-## Stage 4 — Guardrails
+## Stage 5 — LLM Gateway
 
-Adds a **NeMo Guardrails** input gate in front of the agent. Every `/query`
-call now checks the raw user message before it ever reaches the LangGraph
-pipeline — off-topic questions, jailbreak attempts, greetings, and
-capability questions are handled by canned dialog flows instead of being
-sent to an LLM at all.
+The Planner and Responder nodes stop calling Groq directly and route
+through **Portkey** instead — a unified gateway that adds automatic
+fallback, response caching, and retry on top of whatever LLM you're
+calling.
 
 ```mermaid
-graph TD
-    User((User)) --> UI[Streamlit UI]
-    UI --> API[FastAPI /query]
-    API --> Guard{NeMo Guardrails}
-    Guard -->|Blocked| UI
-    Guard -->|Pass| Planner{Planner Node}
-    Planner -->|Conversational| Responder[Responder Node]
-    Planner -->|Technical| Retriever[Retriever Node]
-    Retriever --> Reranker[FlashRank Local Reranker]
-    Reranker --> Responder
-    Responder --> UI
-    Responder -.-> Memory[(LangGraph MemorySaver)]
+graph LR
+    PL[Planner Node] --> PK[Portkey Gateway]
+    RS[Responder Node] --> PK
+    PK --> G1[Groq Primary\nLlama 3.3 70B]
+    PK -.->|fallback on 429/503| G2[Groq Fallback\nLlama 3.1 8B]
+    PK -.->|cache hit| RS
 ```
 
-This is **input-only gating** — the guard checks the user's message before
-the graph runs; it never inspects the LLM's final answer. The classifier
-behind the gate is a fast Groq model (`llama-3.1-8b-instant`), called
-directly — it is the one piece of this codebase that never moves onto the
-LLM Gateway, even after Stage 5 introduces one for the Planner/Responder.
+- **Fallback**: if the primary target (`@rag/llama-3.3-70b-versatile`)
+  returns a 429/503 after 2 retries, Portkey automatically retries against
+  the fallback target (`@brag/llama-3.1-8b-instant`) — no code change
+  needed in the nodes themselves.
+- **Caching**: the Responder uses Portkey's native client directly (not the
+  LangChain wrapper) specifically so it can read the
+  `x-portkey-cache-status` response header and surface `Cache: Hit ⚡` in
+  the UI's reasoning trace when a repeated query is served from cache.
 
-**Still not present yet:** no LLM Gateway (Planner/Responder still call
-`ChatGroq` directly).
+**Deliberately NOT migrated to the gateway:** `app/guardrails/rails.py`'s
+classifier LLM stays on a direct `ChatGroq` call. The gateway is for the
+RAG pipeline's generation calls, not the guardrails gate.
 
 ### 1. Install dependencies
 
@@ -54,7 +51,11 @@ LLM Gateway, even after Stage 5 introduces one for the Planner/Responder.
 pip install -r requirements.txt
 ```
 
-### 2. Launch the app
+### 2. Configure environment
+
+Add `PORTKEY_API_KEY` and `GROQ_FALLBACK_API_KEY` to your `.env`.
+
+### 3. Launch the app
 
 ```powershell
 uvicorn app.main:app --reload --port 8000
@@ -63,11 +64,11 @@ streamlit run ui/app.py
 
 ### Verify it worked
 
-- Watch the startup logs for guardrails initializing.
-- Send an off-topic or jailbreak-style message — the response should have
-  `status: "Blocked by guardrails."` and empty `sources`.
-- Send a normal technical question — it should flow through the
-  Planner/Retriever/Responder pipeline exactly as in Stage 3, unaffected.
+- Ask the same question twice — the second call's `thought_process` should
+  include `"Cache: Hit ⚡"`.
+- Temporarily misconfigure the primary target (e.g. wrong `GROQ_SLUG` in
+  `app/config.py`) to see the fallback target fire, then restore it.
+- Check your Portkey dashboard — the request should show up there with
+  routing/fallback/cache metadata.
 
-Next: check out `stage-5-llm-gateway` to route all LLM calls through a
-gateway with automatic fallback and caching.
+Next: check out `stage-6-evals` to add a RAGAS-based evaluation suite.

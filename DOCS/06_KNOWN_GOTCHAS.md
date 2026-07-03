@@ -128,3 +128,22 @@ demonstrates (off-topic questions, jailbreak attempts) without the added
 latency and complexity of a second guardrails pass on every response.
 Output-gating is a reasonable extension, just not one this project
 implements.
+
+---
+
+## 8. Two Different Ways to Call Through the Gateway — On Purpose
+
+**The Issue:**
+`app/gateway/client.py` exposes both a native `portkey_client` (Portkey's
+own SDK) and `get_langchain_llm()` (a `ChatOpenAI` wrapper pointed at
+Portkey's OpenAI-compatible endpoint). It would be easy to assume this is
+inconsistent and standardize on one.
+
+**Why both exist:** `app/agents/nodes/planner.py` just needs a plain
+`.invoke(prompt).content` call, so it uses the LangChain wrapper for a
+familiar interface. `app/agents/nodes/responder.py` needs to read the
+`x-portkey-cache-status` response header to know whether a request was
+served from cache — LangChain's `ChatOpenAI` wrapper doesn't expose that
+header, so `responder.py` uses the native Portkey client instead. Both
+routes share the same `GATEWAY_CONFIG` (fallback + cache + retry), so
+routing behavior is identical either way.
