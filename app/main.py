@@ -14,6 +14,7 @@ from fastapi import FastAPI, Response
 from app.agents.graph import rag_agent
 
 from pydantic import BaseModel
+from typing import Optional
 
 
 # Initialize FastAPI
@@ -22,6 +23,7 @@ app = FastAPI(title="Enterprise Agentic RAG API")
 
 class QueryRequest(BaseModel):
     q: str
+    thread_id: Optional[str] = "default_user"
 
 
 @app.get("/")
@@ -44,10 +46,10 @@ def get_graph_image():
 @app.post("/query")
 def query(request: QueryRequest):
     """
-    Executes the LangGraph RAG flow via a POST request.
-    No conversation memory yet — every call starts from a blank slate.
+    Executes the LangGraph RAG flow with memory using a POST request.
     """
     q = request.q
+    thread_id = request.thread_id
 
     initial_state = {
         "messages": [{"role": "user", "content": q}],
@@ -57,8 +59,11 @@ def query(request: QueryRequest):
         "status": "Initializing Graph..."
     }
 
+    # Configuration for Memory (Thread ID)
+    config = {"configurable": {"thread_id": thread_id}}
+
     try:
-        final_output = rag_agent.invoke(initial_state)
+        final_output = rag_agent.invoke(initial_state, config=config)
 
         return {
             "question": q,

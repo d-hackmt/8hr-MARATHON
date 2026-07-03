@@ -65,16 +65,32 @@ logfire.configure(token=os.getenv("LOGFIRE_TOKEN"))
 from app.agents.graph import rag_agent
 ```
 
-## 4. No Conversation Memory Yet
+## 4. Conversation Memory Requires a Stable `thread_id`
 
 **The Issue:**
-`app/agents/graph.py` compiles the `StateGraph` with `workflow.compile()`
-and no checkpointer. Every `/query` call builds a brand-new `initial_state`
-and there is nothing tying separate HTTP requests together — the Planner's
-"answer from conversation history" branch only has access to whatever
-`messages` were sent in *that one request*.
+`app/agents/graph.py` now compiles the `StateGraph` with a `MemorySaver`
+checkpointer, and `/query` passes `config={"configurable": {"thread_id": ...}}`
+on every call. `MemorySaver` keys its history purely by `thread_id` — if the
+client generates a new one per request (or doesn't send one at all, falling
+back to the `"default_user"` default on every caller), every call looks like
+a brand-new conversation even though the checkpointer is working correctly.
 
-**Why it's left this way for now:** introducing `MemorySaver` and a
-`thread_id` at the same time as the Planner/Retriever/Responder split would
-be two lessons at once. Memory arrives in the next stage, once the basic
-flow is understood.
+**The Solution:**
+The Streamlit UI (`ui/app.py`) generates one `thread_id` per browser session
+(via `uuid.uuid4()`) and reuses it for every message in that session — it's
+the caller's job to keep sending the same `thread_id`, not the graph's.
+
+---
+
+## 5. Reranking Has a Graceful Fallback
+
+**The Issue:**
+`app/services/retrieval/ranking_service.py` lazily loads a FlashRank
+`Ranker` on first use. If model loading fails for any reason (e.g. no disk
+space for the ONNX model cache), the whole `/query` request would otherwise
+fail even though the Qdrant search itself succeeded.
+
+**The Solution:**
+`rerank_documents()` catches that failure and falls back to returning
+`documents[:top_n]` in their original Qdrant-ranked order — reranking
+degrades gracefully instead of taking down the whole pipeline.
