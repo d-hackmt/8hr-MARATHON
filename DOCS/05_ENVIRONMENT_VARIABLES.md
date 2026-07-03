@@ -8,6 +8,14 @@ lesson introduces new configuration.
 
 ---
 
+## 🧠 LLMs
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `GROQ_API_KEY` | Groq API key — called directly by the Planner and Responder nodes (no gateway yet) | `gsk_...` |
+
+---
+
 ## 🌐 Gemini Embeddings
 
 | Variable | Description | Example |
@@ -29,7 +37,19 @@ lesson introduces new configuration.
 
 | Variable | Description | Example |
 | :--- | :--- | :--- |
-| `LOGFIRE_TOKEN` | Pydantic Logfire token — traces every parsing and indexing step | `logfire_...` |
+| `LOGFIRE_TOKEN` | Pydantic Logfire token — traces every API call, parsing step, and retrieval span | `logfire_...` |
+| `LANGSMITH_API_KEY` | LangSmith token — records LangGraph node transitions, prompts, and token usage | `lsv2_...` |
+| `LANGSMITH_PROJECT` | LangSmith project name to group traces | `enterprise_rag` |
+| `LANGSMITH_TRACING` | Enable/disable LangSmith tracing | `true` |
+| `LANGSMITH_ENDPOINT` | LangSmith API endpoint | `https://api.smith.langchain.com` |
+
+---
+
+## 🖥️ Backend
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `BACKEND_URL` | URL the Streamlit UI uses to reach the FastAPI backend | `http://localhost:8000` |
 
 ---
 

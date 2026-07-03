@@ -7,8 +7,8 @@ branch is a small, runnable step on top of the previous one.
 
 | Stage | Branch | What you'll build |
 |---|---|---|
-| **1** | **`stage-1-ingestion`** ← you are here | Parse local documents, chunk them, embed them, and index them into a vector database |
-| 2 | `stage-2-basic-rag` | A minimal FastAPI + LangGraph RAG agent — no reranking, no memory yet |
+| 1 | `stage-1-ingestion` | Parse local documents, chunk them, embed them, and index them into a vector database |
+| **2** | **`stage-2-basic-rag`** ← you are here | A minimal FastAPI + LangGraph RAG agent — no reranking, no memory yet |
 | 3 | `stage-3-rerank-memory` | Add a local semantic reranker and multi-turn conversation memory |
 | 4 | `stage-4-guardrails` | Add an input safety gate that blocks off-topic and jailbreak attempts |
 | 5 | `stage-5-llm-gateway` | Route all LLM calls through an LLM gateway with automatic fallback and caching |
@@ -16,63 +16,74 @@ branch is a small, runnable step on top of the previous one.
 
 ---
 
-## Stage 1 — Data Ingestion
+## Stage 2 — Basic RAG (no reranking, no memory)
 
-Turns raw documents in `DATA/true_data/` into searchable vectors in Qdrant.
-There is no API and no agent yet — just a standalone CLI pipeline.
+Turns the vector store built in Stage 1 into an answerable agent, served
+over a FastAPI `/query` endpoint with a Streamlit chat UI in front of it.
 
+```mermaid
+graph LR
+    User((User)) --> UI[Streamlit UI]
+    UI --> API[FastAPI /query]
+    API --> Planner{Planner Node}
+    Planner -->|Conversational| Responder[Responder Node]
+    Planner -->|Technical| Retriever[Retriever Node]
+    Retriever --> Responder
+    Responder --> UI
 ```
-DATA/true_data/*  →  loader (per file type)  →  chunker  →  processed_data/*.json
-                                                          ↘  Gemini embeddings  →  Qdrant Cloud
-```
 
-### Project structure
+**Deliberately not present yet:**
+- No reranking — the Retriever takes Qdrant's raw top-5 results as-is.
+- No memory — every `/query` call starts from a blank slate. Ask a
+  follow-up like *"what did I just ask?"* and the agent won't know.
+- No LLM Gateway — `planner_node`/`generate_node` call `ChatGroq` directly.
+- No guardrails — any input reaches the agent.
+
+### Project structure (new this stage)
 
 ```text
 ├── app/
-│   ├── config.py          # Centralized environment variable management
-│   ├── ingestion/
-│   │   ├── loaders/       # Local parsers — PDF (pypdf/pdfplumber), HTML, TXT, DOCX/PPTX
-│   │   ├── chunking/      # Paragraph-based text splitter (1500 char max)
-│   │   └── processor.py   # CLI entrypoint — parse, chunk, embed, index
-│   └── services/
-│       └── retrieval/
-│           └── embedding.py   # Gemini gemini-embedding-2-preview (3072-dim), local fallback
-├── DATA/true_data/        # Sample documents (6 files)
-└── processed_data/        # Auto-generated — parsed & chunked JSON output per document
+│   ├── agents/
+│   │   ├── state.py            # AgentState — shared LangGraph state shape
+│   │   ├── graph.py             # StateGraph: planner → retriever/responder
+│   │   └── nodes/
+│   │       ├── planner.py       # Classifies CONVERSATIONAL vs. technical intent
+│   │       ├── retriever.py     # Qdrant search only (no rerank)
+│   │       └── responder.py     # Synthesizes the final answer (direct Groq)
+│   ├── services/retrieval/
+│   │   └── qdrant_service.py    # search_enterprise_knowledge()
+│   └── main.py                  # FastAPI entrypoint — /query endpoint
+└── ui/
+    └── app.py                    # Streamlit chat interface
 ```
 
 ### 1. Install dependencies
 
 ```powershell
-python -m venv tenvv
-.\tenvv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ### 2. Configure environment
 
-Copy `.env.example` to `.env` and fill in `GEMINI_API_KEY`, `QDRANT_API_KEY`,
-`QDRANT_CLUSTER_ENDPOINT` (and `LOGFIRE_TOKEN` if you want tracing).
+Add `GROQ_API_KEY` to your `.env` (on top of Stage 1's Gemini/Qdrant vars).
 
-### 3. Run ingestion
+### 3. Launch the app
 
 ```powershell
-python -m app.ingestion.processor DATA/true_data true --wipe
-```
+# Terminal 1 — FastAPI backend
+uvicorn app.main:app --reload --port 8000
 
-This parses all 6 files in `DATA/true_data/`, chunks them (1500 chars,
-paragraph-aware), writes metadata to `processed_data/true/*.json`, embeds
-each chunk with Gemini, and upserts the vectors into a Qdrant collection
-named `enterprise_rag`. Pass `--wipe` to drop and recreate the collection;
-omit it to append.
+# Terminal 2 — Streamlit UI
+streamlit run ui/app.py
+```
 
 ### Verify it worked
 
-- `processed_data/true/` should contain 6 JSON files.
-- The Qdrant collection's point count should equal the total chunk count
-  across those 6 files (check via the Qdrant Cloud console, or
-  `QdrantClient(...).count(collection_name="enterprise_rag")`).
+- Ask a technical question — you should get a sourced answer and see
+  `GET /graph` render a 3-node PNG (planner → retriever → responder).
+- Ask a follow-up that depends on the previous turn — it should **fail to
+  recall**. That failure is the expected Stage 2 behavior; memory arrives
+  next stage.
 
-Next: check out `stage-2-basic-rag` to turn this indexed data into an
-answerable RAG agent.
+Next: check out `stage-3-rerank-memory` to add semantic reranking and
+multi-turn conversation memory.

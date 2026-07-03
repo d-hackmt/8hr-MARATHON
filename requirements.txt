@@ -1,13 +1,14 @@
 # ==============================================================================
 # ENTERPRISE AGENTIC RAG - REQUIREMENTS (Local, No GCP)
 # ==============================================================================
-# Stage 1 — Data Ingestion. Grows one stage at a time as the course progresses.
+# Stage 2 — Basic RAG. Grows one stage at a time as the course progresses.
 
 # --- CORE API & WEB FRAMEWORK ---
-fastapi                     # High-performance web framework for the API (not used yet — arrives Stage 2)
+fastapi                     # High-performance web framework for the API
 uvicorn[standard]           # ASGI server to run the FastAPI app
 python-dotenv               # For loading configuration from .env files
 requests                    # HTTP library for internal/external API calls
+streamlit                   # Frontend chat interface
 numpy                       # Numerical processing
 
 # --- GEMINI EMBEDDINGS ---
@@ -16,6 +17,12 @@ langchain-google-genai      # LangChain integration for Gemini models
 
 # --- VECTOR DB & RETRIEVAL ---
 qdrant-client               # Vector Database for semantic search
+
+# --- LANGCHAIN & AGENTIC ORCHESTRATION ---
+langchain                   # Core LLM orchestration
+langgraph                   # State-machine logic for cyclic agent flows
+langchain-groq              # Direct integration for lightning-fast Llama 3.3 models
+pydantic>=2.0.0             # Data validation and settings management
 
 # --- DATA INGESTION & DOCUMENT PARSING ---
 unstructured                # Base library for DOCX/PPTX partitioning
@@ -26,5 +33,6 @@ beautifulsoup4              # High-speed HTML text extraction
 pdfplumber                  # Fallback PDF parser for scanned/complex layouts
 
 # --- OBSERVABILITY & DISTRIBUTED TRACING ---
-logfire[fastapi,requests]   # Pydantic Logfire — traces the ingestion pipeline
+langsmith                   # Specialized tracing for LangChain/LangGraph
+logfire[fastapi,requests]   # Pydantic Logfire — FastAPI + requests instrumentation
 loguru                      # Enhanced logging for Python
