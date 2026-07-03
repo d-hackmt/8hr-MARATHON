@@ -57,3 +57,5 @@ portkey-ai                  # Portkey Gateway for unified LLM routing, fallbacks
 ragas                       # RAG-specific evaluation metrics (Faithfulness, Relevancy, Recall)
 deepeval                    # Pytest-compatible test runner wrapping RAGAS & safety metrics
 langfuse                    # Live production monitoring, tracing & user feedback collection
+pandas                      # DataFrames for the eval Streamlit app's result tables
+openai                      # AsyncOpenAI client used directly by the RAGAS judge LLM
