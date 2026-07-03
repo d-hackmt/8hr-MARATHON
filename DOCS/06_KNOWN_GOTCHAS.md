@@ -94,3 +94,37 @@ fail even though the Qdrant search itself succeeded.
 `rerank_documents()` catches that failure and falls back to returning
 `documents[:top_n]` in their original Qdrant-ranked order — reranking
 degrades gracefully instead of taking down the whole pipeline.
+
+---
+
+## 6. The Guardrails YAML's Declared Model Is Not What Actually Runs
+
+**The Issue:**
+`app/guardrails/colang_rules.py`'s `YAML_CONTENT` declares
+`engine: openai, model: gpt-3.5-turbo` as the "main" model. If you read only
+the YAML, you'd assume guardrails calls OpenAI. It doesn't — no OpenAI key
+is configured anywhere in this project.
+
+**The Solution:**
+`initialize_rails()` in `app/guardrails/rails.py` constructs an explicit
+`ChatGroq` instance and passes it directly as `LLMRails(config, llm=guard_llm)`.
+Passing an explicit `llm` overrides whatever the YAML config declares, so
+the actual classifier is Groq's `llama-3.1-8b-instant`. Keep this in mind
+when reading NeMo Guardrails config — the YAML's `models:` section is not
+authoritative once code passes its own `llm=`.
+
+---
+
+## 7. Guardrails Is Input-Only, Never Output-Gated
+
+**The Issue:**
+It's easy to assume a "guardrails" layer checks both what goes in and what
+comes out. This one doesn't: `guard(q)` in `app/main.py` is called exactly
+once, on the raw user message, before `rag_agent.invoke(...)`. The LLM's
+`final_answer` is returned to the client with no guardrails check at all.
+
+**Why it's left this way:** input gating catches the cases this course
+demonstrates (off-topic questions, jailbreak attempts) without the added
+latency and complexity of a second guardrails pass on every response.
+Output-gating is a reasonable extension, just not one this project
+implements.

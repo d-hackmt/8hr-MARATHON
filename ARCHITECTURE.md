@@ -2,7 +2,7 @@
 
 This diagram grows one subgraph at a time as each lesson is introduced.
 
-## Stage 3 — Reranking + Memory
+## Stage 4 — Guardrails
 
 ```mermaid
 graph TB
@@ -12,9 +12,10 @@ graph TB
         CHAT["Streamlit Chat UI"]
     end
 
-    subgraph SAFETY ["2. API"]
+    subgraph SAFETY ["2. API + Safety Gate"]
         direction LR
         API["⚡ FastAPI  /query"]
+        GR{"🛡️ NeMo Guardrails\nBlocks · Jailbreak · Off-topic · Injection"}
     end
 
     subgraph AGENT ["3. Agent Engine — LangGraph"]
@@ -31,10 +32,12 @@ graph TB
         FR["⚡ FlashRank\nLocal Reranker"]
     end
 
-    CHAT -->|query + thread_id| API
-    API --> PL
-    PL -->|conversational| RS
+    CHAT -->|query| API
+    API --> GR
+    GR -->|"❌ blocked"| CHAT
+    GR -->|"✅ pass"| PL
     PL -->|technical| RT
+    PL -->|conversational| RS
     RT --> QD
     QD --> FR
     FR --> RS
@@ -50,16 +53,17 @@ graph TB
     classDef memory    fill:#6D28D9,stroke:#4C1D95,color:#fff
 
     class CHAT ui
-    class API safety
+    class API,GR safety
     class PL,RT,RS agent
     class QD,FR knowledge
     class MEM memory
 ```
 
-Two additions on top of Stage 2: the Retriever now routes through
-**FlashRank** before reaching the Responder, and the graph carries a
-**MemorySaver** checkpoint keyed by `thread_id`. Still no LLM gateway, still
-no guardrails.
+The Guardrails gate sits in `main.py`, not inside the LangGraph — it's a
+pre-graph HTTP-layer check on the raw user message, called once before
+`rag_agent.invoke(...)`. It is input-only: the final LLM answer is never
+re-checked.
 
-The next stage (`stage-4-guardrails`) adds a Safety Gate subgraph in front
-of the Agent Engine.
+The next stage (`stage-5-llm-gateway`) adds an LLM Gateway subgraph that
+the Planner and Responder route through — but not the guardrails
+classifier, which intentionally stays on a direct Groq call.

@@ -1,7 +1,7 @@
 # ==============================================================================
 # ENTERPRISE AGENTIC RAG - REQUIREMENTS (Local, No GCP)
 # ==============================================================================
-# Stage 3 — Reranking + Memory. Grows one stage at a time as the course progresses.
+# Stage 4 — Guardrails. Grows one stage at a time as the course progresses.
 
 # --- CORE API & WEB FRAMEWORK ---
 fastapi                     # High-performance web framework for the API
@@ -40,3 +40,8 @@ loguru                      # Enhanced logging for Python
 
 # --- EMBEDDINGS (SENTENCE TRANSFORMERS) ---
 sentence-transformers       # Used by FlashRank reranker internally
+
+# --- GUARDRAILS ---
+nemoguardrails              # NVIDIA NeMo Guardrails for input/output safety rails
+langchain-nvidia-ai-endpoints # LangChain integration with NVIDIA AI Endpoints
+langchain-google-vertexai   # Required shim for NeMo Guardrails internal import (no GCP credentials needed)
