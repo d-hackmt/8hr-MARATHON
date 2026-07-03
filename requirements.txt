@@ -1,7 +1,30 @@
 # ==============================================================================
 # ENTERPRISE AGENTIC RAG - REQUIREMENTS (Local, No GCP)
 # ==============================================================================
-#
-# This file grows one stage at a time as the course progresses. Nothing has
-# been taught yet on this branch, so there are no dependencies pinned here —
-# Stage 1 (Data Ingestion) adds the first ones.
+# Stage 1 — Data Ingestion. Grows one stage at a time as the course progresses.
+
+# --- CORE API & WEB FRAMEWORK ---
+fastapi                     # High-performance web framework for the API (not used yet — arrives Stage 2)
+uvicorn[standard]           # ASGI server to run the FastAPI app
+python-dotenv               # For loading configuration from .env files
+requests                    # HTTP library for internal/external API calls
+numpy                       # Numerical processing
+
+# --- GEMINI EMBEDDINGS ---
+google-generativeai         # Gemini API — embeddings (text-embedding-004 / gemini-embedding-001)
+langchain-google-genai      # LangChain integration for Gemini models
+
+# --- VECTOR DB & RETRIEVAL ---
+qdrant-client               # Vector Database for semantic search
+
+# --- DATA INGESTION & DOCUMENT PARSING ---
+unstructured                # Base library for DOCX/PPTX partitioning
+python-pptx                 # Parser for PowerPoint files
+python-docx                 # Parser for Word documents
+pypdf                       # Local PDF text extraction (replaces Document AI)
+beautifulsoup4              # High-speed HTML text extraction
+pdfplumber                  # Fallback PDF parser for scanned/complex layouts
+
+# --- OBSERVABILITY & DISTRIBUTED TRACING ---
+logfire[fastapi,requests]   # Pydantic Logfire — traces the ingestion pipeline
+loguru                      # Enhanced logging for Python
